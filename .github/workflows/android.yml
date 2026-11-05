@@ -1,47 +1,44 @@
-name: Android build
+name: Build All APKs
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   build:
-    name: ${{ matrix.project }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-
-    strategy:
-      fail-fast: false
-      matrix:
-        project:
-          - LiquidGlassClickGUI
-          - LiquidPE
-          - MD3-ClickGui-NextGen
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+    # 给三个项目添加执行权限
+    - name: Make gradlew executable
+      run: |
+        chmod +x LiquidGlassClickGUI/gradlew
+        chmod +x LiquidPE/gradlew
+        chmod +x MD3-ClickGui-NextGen/gradlew
 
-      # Every project is self-contained with its own wrapper. JDK 21 is supplied above, so Gradle
-      # never needs to download a toolchain; disabling that keeps the build offline-deterministic.
-      - name: Build debug APK
-        working-directory: ${{ matrix.project }}
-        run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace \
-            -Dorg.gradle.java.installations.auto-download=false \
-            :app:assembleDebug
+    # 依次编译三个项目
+    - name: Build LiquidGlassClickGUI
+      run: cd LiquidGlassClickGUI && ./gradlew :app:assembleDebug
+
+    - name: Build LiquidPE
+      run: cd LiquidPE && ./gradlew :app:assembleDebug
+
+    - name: Build MD3-ClickGui-NextGen
+      run: cd MD3-ClickGui-NextGen && ./gradlew :app:assembleDebug
+
+    # 把三个项目的 APK 找出来并打包上传
+    - name: Upload All APKs
+      uses: actions/upload-artifact@v4
+      with:
+        name: All-Three-Apps
+        path: |
+          LiquidGlassClickGUI/app/build/outputs/apk/debug/*.apk
+          LiquidPE/app/build/outputs/apk/debug/*.apk
+          MD3-ClickGui-NextGen/app/build/outputs/apk/debug/*.apk
